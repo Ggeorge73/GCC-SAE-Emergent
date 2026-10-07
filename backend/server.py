@@ -19,13 +19,14 @@ import json
 import base64
 try:
     from .research_safety import get_research_prompt, unavailable_response
-    from . import identity, workspace, collaboration
+    from . import identity, workspace, collaboration, portal
     from .memory_store import MemoryClient, MemoryDatabase
 except ImportError:
     from research_safety import get_research_prompt, unavailable_response
     import identity
     import workspace
     import collaboration
+    import portal
     from memory_store import MemoryClient, MemoryDatabase
 
 # Load environment variables FIRST
@@ -634,6 +635,7 @@ app.include_router(api_router)
 app.include_router(identity.router)
 app.include_router(workspace.router)
 app.include_router(collaboration.router)
+app.include_router(portal.router)
 
 @app.on_event("startup")
 async def create_identity_indexes():
