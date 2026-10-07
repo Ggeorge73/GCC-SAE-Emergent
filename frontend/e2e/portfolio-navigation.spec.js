@@ -8,6 +8,10 @@ test("500 matters stay summarized and the directory paginates, searches and filt
   await expect(
     page.getByRole("button", { name: "View Active matters" }),
   ).toContainText("3");
+  // The first save is asynchronous (it waits for the cross-tab revision check).
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem("law-suite-workspace-v2")))
+    .not.toBeNull();
   await page.evaluate(() => {
     const key = "law-suite-workspace-v2";
     const state = JSON.parse(localStorage.getItem(key));

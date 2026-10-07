@@ -2625,3 +2625,16 @@
 .v-notification-popover .unread {
   font-weight: 700;
 }
+.v-client-room {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #ffffff22;
+}
+.v-client-room h4 {
+  margin: 16px 0 8px;
+  font-size: 13px;
+}
+.v-portal input[type="file"] {
+  font-size: 12px;
+  max-width: 100%;
+}

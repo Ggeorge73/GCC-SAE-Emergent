@@ -49,6 +49,7 @@ import {
   VisionHeader,
 } from "@/components/vision/VisionShell";
 import VisionPages from "@/components/vision/VisionPages";
+import ClientPortal from "@/components/vision/ClientPortal";
 import { readRoute, navigateTo } from "@/lib/workspaceNavigation";
 import { serverMode, useSession } from "@/lib/session";
 import "@/components/PortfolioShell.css";
@@ -912,6 +913,8 @@ function App() {
     route.workspace === "vision" &&
     (route.page.startsWith("sign-") || route.page === "join");
   const locked = serverMode && session.status !== "signed-in" && !onAuthPage;
+  // Clients only ever see their portal, whatever address they open.
+  const isClient = session.status === "signed-in" && session.user.role === "client";
   useEffect(() => {
     if (locked && session.status === "signed-out")
       navigateTo("/authentication/sign-in/basic");
@@ -1071,7 +1074,7 @@ function App() {
   return (
     <VisionFrame>
       <Toaster position="top-right" richColors />
-      <WorkspaceNavigation route={route} />
+      {!isClient && <WorkspaceNavigation route={route} />}
 
       {/* Main content */}
       <main className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
@@ -1082,7 +1085,9 @@ function App() {
           setActiveTab={setActiveTab}
         />
 
-        {locked ? (
+        {isClient ? (
+          <ClientPortal />
+        ) : locked ? (
           <p className="v-session-check" role="status">
             Checking your session…
           </p>
@@ -1091,7 +1096,7 @@ function App() {
             <MatterDesk route={route} onNavigate={navigateTo} />
           </div>
         )}
-        {locked ? null : workspaceMode === "vision" ? (
+        {locked || isClient ? null : workspaceMode === "vision" ? (
           <VisionPages route={route} />
         ) : workspaceMode === "control" ? (
           <FirmOperations />

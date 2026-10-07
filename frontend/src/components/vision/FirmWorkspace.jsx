@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Panel, Button, LinkButton, Badge, StatusMessage } from "./Glass";
 import { api, serverMode, useSession } from "@/lib/session";
+import { downloadFile } from "./ClientPortal";
 
 // Mirrors the server's permission table for showing controls; the API still decides.
 const MATTER_LEADS = ["admin", "partner", "associate"];
@@ -48,12 +49,6 @@ export default function FirmWorkspace() {
       </Panel>
     );
   if (session.status !== "signed-in") return null;
-  if (session.user.role === "client")
-    return (
-      <Panel title="Client portal">
-        <p>Your firm shares updates with you in the client portal.</p>
-      </Panel>
-    );
   return <Workspace user={session.user} />;
 }
 
@@ -381,6 +376,7 @@ function MatterPanel({ user, matter, members, nameOf, run, refresh }) {
         <Button>Add task</Button>
       </form>
       <Discussion matter={matter} user={user} nameOf={nameOf} run={run} />
+      <ClientRoom matter={matter} user={user} run={run} />
     </Panel>
   );
 }
@@ -567,5 +563,181 @@ function Directory({ user, members, run }) {
         </p>
       )}
     </Panel>
+  );
+}
+
+const APPROVERS = ["admin", "partner"];
+
+// Everything here is visible to the client once shared; internal notes stay in Discussion.
+function ClientRoom({ matter, user, run }) {
+  const [room, setRoom] = useState({ updates: [], messages: [], requests: [] });
+  const [clients, setClients] = useState({ clients: [], pending: [] });
+  const [invite, setInvite] = useState({ name: "", email: "" });
+  const [code, setCode] = useState("");
+  const [update, setUpdate] = useState({ title: "", body: "" });
+  const [reply, setReply] = useState("");
+  const [request, setRequest] = useState("");
+  const base = `/firm/matters/${matter.id}`;
+  const load = useCallback(async () => {
+    const [r, c] = await Promise.all([api(`${base}/client-room`), api(`${base}/clients`)]);
+    setRoom(r);
+    setClients(c);
+  }, [base]);
+  useEffect(() => {
+    run(load);
+    const timer = setInterval(() => load().catch(() => {}), 15000);
+    return () => clearInterval(timer);
+  }, [run, load]);
+  const act = (path, body, success) =>
+    run(async () => {
+      await api(`${base}${path}`, { method: "POST", body });
+      await load();
+    }, success);
+
+  return (
+    <section className="v-client-room" aria-label="Client room">
+      <h3>Client room</h3>
+      <p className="v-firm-note">
+        Shared with the client in their portal. Internal discussion above is never shown.
+      </p>
+      <ul className="v-firm-people" aria-label="Matter clients">
+        {clients.clients.map((c) => (
+          <li key={c.id}>
+            {c.name} · {c.email}
+          </li>
+        ))}
+        {clients.pending.map((c) => (
+          <li key={c.id}>
+            {c.name} · invitation pending
+          </li>
+        ))}
+        {!clients.clients.length && !clients.pending.length && <li>No client invited yet.</li>}
+      </ul>
+      {MATTER_LEADS.includes(user.role) && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            setCode("");
+            run(async () => {
+              const result = await api(`${base}/clients`, { method: "POST", body: invite });
+              setCode(result.code || "");
+              setInvite({ name: "", email: "" });
+              await load();
+            }, "Client added to this matter.");
+          }}
+        >
+          <TextField label="Client contact name" value={invite.name} onChange={(name) => setInvite({ ...invite, name })} required />
+          <TextField label="Client contact email" type="email" value={invite.email} onChange={(email) => setInvite({ ...invite, email })} required />
+          <Button secondary>Invite client</Button>
+        </form>
+      )}
+      {code && (
+        <p className="v-firm-code" role="status">
+          Client invitation code: <code data-testid="client-invite-code">{code}</code>. Share it
+          privately; it works once and expires in 7 days.
+        </p>
+      )}
+
+      <h4>Updates for the client</h4>
+      <ul className="v-firm-tasks" aria-label="Client updates">
+        {room.updates.map((u) => (
+          <li key={u.id}>
+            <span>
+              <b>{u.title}</b>
+              <small>{u.body}</small>
+              <small>
+                Drafted by {u.drafted_by}
+                {u.approved_by ? ` · approved by ${u.approved_by}` : ""}
+              </small>
+            </span>
+            <Badge tone={u.status === "shared" ? "green" : "blue"}>{u.status}</Badge>
+            {u.status === "draft" && APPROVERS.includes(user.role) && (
+              <Button secondary onClick={() => act(`/updates/${u.id}/approve`, undefined, "Update approved.")}>
+                Approve {u.title}
+              </Button>
+            )}
+            {u.status === "approved" && (
+              <Button onClick={() => act(`/updates/${u.id}/share`, undefined, "Update shared with the client.")}>
+                Share {u.title}
+              </Button>
+            )}
+          </li>
+        ))}
+        {!room.updates.length && <li>No client updates yet.</li>}
+      </ul>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          act("/updates", update, "Draft saved. A partner must approve it before it can be shared.");
+          setUpdate({ title: "", body: "" });
+        }}
+      >
+        <TextField label="Update title" value={update.title} onChange={(title) => setUpdate({ ...update, title })} required />
+        <label className="v-field">
+          <span>Update for the client</span>
+          <textarea value={update.body} onChange={(e) => setUpdate({ ...update, body: e.target.value })} maxLength={8000} required />
+        </label>
+        <Button secondary>Save draft update</Button>
+      </form>
+
+      <h4>Documents requested from the client</h4>
+      <ul className="v-firm-tasks" aria-label="Requested documents">
+        {room.requests.map((r) => (
+          <li key={r.id}>
+            <span>
+              <b>{r.title}</b>
+              {r.documents.map((d) => (
+                <button
+                  key={d.id}
+                  className="v-text-link"
+                  onClick={() => run(() => downloadFile(`/firm/client-documents/${d.id}`, d.file_name))}
+                >
+                  Download {d.file_name}
+                </button>
+              ))}
+            </span>
+            <Badge tone={r.status === "fulfilled" ? "green" : "blue"}>{r.status}</Badge>
+          </li>
+        ))}
+        {!room.requests.length && <li>Nothing requested.</li>}
+      </ul>
+      <form
+        className="v-inline"
+        onSubmit={(e) => {
+          e.preventDefault();
+          act("/document-requests", { title: request }, "Request sent to the client portal.");
+          setRequest("");
+        }}
+      >
+        <TextField label="Document to request" value={request} onChange={setRequest} required />
+        <Button secondary>Request</Button>
+      </form>
+
+      <h4>Messages with the client</h4>
+      <ol className="v-firm-thread" aria-label="Client message thread">
+        {room.messages.map((m) => (
+          <li key={m.id}>
+            <small>
+              <b>{m.author_name}</b> {m.author_kind === "client" ? "(client)" : "(firm)"}
+            </small>
+            <p>{m.body}</p>
+          </li>
+        ))}
+        {!room.messages.length && <li>No messages yet.</li>}
+      </ol>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          act("/client-messages", { body: reply }, "Message sent to the client.");
+          setReply("");
+        }}
+      >
+        <label className="v-field">
+          <span>Message to the client</span>
+          <textarea value={reply} onChange={(e) => setReply(e.target.value)} maxLength={8000} required />
+        </label>
+        <Button>Send to client</Button>
+      </form>
+    </section>
   );
 }

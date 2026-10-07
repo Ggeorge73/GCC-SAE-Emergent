@@ -36,7 +36,7 @@ PERMISSIONS = {
 
 # Routes under these prefixes enforce sessions themselves, so they bypass the
 # loopback-only gate that still protects the legacy unauthenticated endpoints.
-AUTHENTICATED_PREFIXES = ("/api/auth/", "/api/firm/")
+AUTHENTICATED_PREFIXES = ("/api/auth/", "/api/firm/", "/api/portal/")
 
 SESSION_SECONDS = int(float(os.environ.get("LAW_SUITE_SESSION_HOURS", "12")) * 3600)
 MIN_PASSWORD_LENGTH = 8
@@ -136,6 +136,8 @@ async def ensure_indexes(db):
     await db.comments.create_index([("firm_id", 1), ("matter_id", 1)])
     await db.activity.create_index([("firm_id", 1), ("matter_id", 1)])
     await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
+    for collection in ("client_updates", "client_messages", "document_requests", "client_documents"):
+        await db[collection].create_index([("firm_id", 1), ("matter_id", 1)])
 
 
 # ============== DEPENDENCIES ==============
