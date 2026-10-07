@@ -19,8 +19,12 @@ import json
 import base64
 try:
     from .research_safety import get_research_prompt, unavailable_response
+    from . import identity
+    from .memory_store import MemoryClient, MemoryDatabase
 except ImportError:
     from research_safety import get_research_prompt, unavailable_response
+    import identity
+    from memory_store import MemoryClient, MemoryDatabase
 
 # Load environment variables FIRST
 ROOT_DIR = Path(__file__).parent
@@ -28,8 +32,14 @@ load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+if mongo_url == "memory":
+    # Process-local store for tests and demos; records vanish on restart.
+    client = MemoryClient()
+    db = MemoryDatabase()
+else:
+    client = AsyncIOMotorClient(mongo_url)
+    db = client[os.environ.get('DB_NAME', 'law_suite')]
+identity.bind(db)
 
 # LLM Configuration
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
@@ -51,6 +61,8 @@ async def require_local_demo_opt_in(request: Request, call_next):
     It is not authentication and must not be exposed through a public reverse proxy.
     """
     from starlette.responses import JSONResponse
+    if request.url.path.startswith(identity.AUTHENTICATED_PREFIXES):
+        return await call_next(request)
     if request.url.path.startswith("/api") and request.url.path not in {"/api", "/api/"}:
         if os.environ.get("LAW_SUITE_ALLOW_LOCAL_DEMO", "false").lower() != "true":
             return JSONResponse(status_code=503, content={"detail": "Data endpoints are disabled until authentication is implemented. Local synthetic-data development requires explicit LAW_SUITE_ALLOW_LOCAL_DEMO=true."})
@@ -617,6 +629,11 @@ async def get_stats():
 
 # Include the router in the main app
 app.include_router(api_router)
+app.include_router(identity.router)
+
+@app.on_event("startup")
+async def create_identity_indexes():
+    await identity.ensure_indexes(db)
 
 app.add_middleware(
     CORSMiddleware,

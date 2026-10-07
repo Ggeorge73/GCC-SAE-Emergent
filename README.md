@@ -29,6 +29,7 @@ The new Vision UI handoff is implemented in the review branch, with all 32 refer
 
 - [Workspace UI design](docs/UI_DESIGN.md): reference palette, application coverage, and validation scope.
 
+- [Delivery plan](docs/DELIVERY_PLAN.md): Scrum team, five sprints and Definition of Done for the firm workspace and client portal.
 - [Requirements review and end-to-end results](docs/REQUIREMENTS_REVIEW.md): capability against the one-stop firm workspace goal.
 - [Codebase, website, and competitive review](docs/LAW_SUITE_REVIEW.md): findings, original positioning, US firm priorities, architecture, and evaluation plan.
 - [Security and governance](docs/SECURITY_AND_GOVERNANCE.md): boundaries and production requirements.
@@ -48,6 +49,10 @@ The opt-in is not authentication. Never expose this API through a public reverse
 
 Uploads are limited to 10 MiB, hashed from bytes, and marked stored rather than indexed. Public and external-storage registration are rejected. Firebase helper code is dormant pending an authorized storage service.
 
+## Sign in with a live API
+
+Firm accounts, sign-in and roles work when the frontend points at the API. For a throwaway local run with no database, start the API with MONGO_URL=memory from the repository root: `MONGO_URL=memory CORS_ORIGINS=http://localhost:3000 uvicorn backend.server:app --port 8001`. Then start the frontend with REACT_APP_BACKEND_URL=http://127.0.0.1:8001 and open the sign-up page to create a firm. In this mode every workspace page requires sign-in, and the header shows the signed-in person, firm and role. In-memory records disappear when the API stops. The legacy deal-room endpoints remain behind LAW_SUITE_ALLOW_LOCAL_DEMO until they are retired. See [the delivery plan](docs/DELIVERY_PLAN.md).
+
 ## Verification commands
 
 - python -m unittest discover -s tests -p "test_*.py"
@@ -55,6 +60,7 @@ Uploads are limited to 10 MiB, hashed from bytes, and marked stored rather than 
 - In frontend: npm run build
 - In frontend: npm test -- --watchAll=false --runInBand
 - In frontend: npx playwright install chromium, then npm run test:e2e
+- In frontend: npm run test:e2e:server (starts the API with an in-memory store; needs backend/requirements-ci.txt installed)
 
 Boundary tests use fake persistence. The separate backend_test.py harness exercises a disposable MongoDB API in CI. RUN_LIVE_AI_TESTS=true adds a provider contract smoke test, not legal-accuracy evaluation. Build, browser tests, and backend integration must pass before Pages deployment on main.
 

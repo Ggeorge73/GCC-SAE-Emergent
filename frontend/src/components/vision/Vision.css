@@ -368,6 +368,30 @@
   font-size: 12px;
   font-weight: 700;
 }
+.v-session {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+.v-session span {
+  display: grid;
+  line-height: 1.3;
+}
+.v-session small {
+  color: #a0aec0;
+  text-transform: capitalize;
+}
+.v-session button {
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid #46547a;
+  border-radius: 12px;
+  padding: 5px 10px;
+}
+.v-session-check {
+  padding: 32px;
+}
 .v-fixed-header .v-header {
   position: sticky;
   top: 0;
@@ -2137,7 +2161,8 @@
     gap: 12px;
   }
   .v-header-tools > form,
-  .v-account-link span {
+  .v-account-link span,
+  .v-session span {
     display: none;
   }
   .v-header-tools > button {

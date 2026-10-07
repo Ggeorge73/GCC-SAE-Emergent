@@ -20,6 +20,7 @@ import {
 import { visionGroups, visionRoute } from "./routes";
 import { Button, Switch, useLocal, StatusMessage } from "./Glass";
 import { navigateTo } from "@/lib/workspaceNavigation";
+import { useSession } from "@/lib/session";
 const Context = createContext(null);
 const icons = {
   home: Home,
@@ -306,6 +307,7 @@ export function VisionHeader({ route, activeTab, setActiveTab }) {
     useContext(Context);
   const [query, setQuery] = useState("");
   const [notifications, setNotifications] = useState(false);
+  const session = useSession();
   const current = visionRoute(window.location.hash.slice(1).split("?")[0]);
   const title =
     current?.title ||
@@ -361,6 +363,24 @@ export function VisionHeader({ route, activeTab, setActiveTab }) {
             onChange={(e) => setQuery(e.target.value)}
           />
         </form>
+        {session.status === "signed-in" && (
+          <div className="v-session" aria-label="Signed-in account">
+            <span>
+              <b>{session.user.name}</b>
+              <small>
+                {session.firm.name} · {session.user.role}
+              </small>
+            </span>
+            <button
+              onClick={async () => {
+                await session.signOut();
+                navigateTo("/authentication/sign-in/basic");
+              }}
+            >
+              Sign out
+            </button>
+          </div>
+        )}
         <button
           className="v-account-link"
           aria-label="My profile"

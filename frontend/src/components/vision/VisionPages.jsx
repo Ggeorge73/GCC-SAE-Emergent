@@ -45,6 +45,7 @@ import {
 } from "./Workflows";
 import { loadWorkspace, readiness } from "@/lib/matterWorkspace";
 import { navigateTo } from "@/lib/workspaceNavigation";
+import { serverMode, useSession } from "@/lib/session";
 import { useServices } from "./serviceRecords";
 import PracticeDesk from "./PracticeDesk";
 
@@ -1265,6 +1266,39 @@ function Auth({ kind }) {
   const variant = kind.split("-").pop();
   const [message, setMessage] = useState("");
   const [remember, setRemember] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const session = useSession();
+  const submit = async (e) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    if (!serverMode) {
+      form.reset();
+      setMessage(
+        signup
+          ? "Demo request validated. No account was created or invitation sent."
+          : "Demo form validated. Live authentication is not connected.",
+      );
+      return;
+    }
+    const data = Object.fromEntries(new FormData(form));
+    setBusy(true);
+    setMessage("");
+    try {
+      if (signup)
+        await session.signUp({
+          firm_name: data.firm_name,
+          name: data.name,
+          email: data.email,
+          password: data.password,
+        });
+      else await session.signIn(data.email, data.password);
+      navigateTo("/dashboard");
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <div className={`v-auth ${variant}`}>
       <div className="v-auth-art">
@@ -1276,24 +1310,29 @@ function Auth({ kind }) {
       <Panel className="v-auth-form">
         <h1>{signup ? "Join your workspace" : "Welcome back"}</h1>
         <p>
-          {signup
-            ? "Prepare a demo account request."
-            : "Explore the account access experience."}
+          {serverMode
+            ? signup
+              ? "Create your firm's workspace. You will be its administrator."
+              : "Sign in to your firm's workspace."
+            : signup
+              ? "Prepare a demo account request."
+              : "Explore the account access experience."}
         </p>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            e.currentTarget.reset();
-            setMessage(
-              signup
-                ? "Demo request validated. No account was created or invitation sent."
-                : "Demo form validated. Live authentication is not connected.",
-            );
-          }}
-        >
-          {signup && <Field label="Full name" required autoComplete="name" />}
+        <form onSubmit={submit}>
+          {signup && serverMode && (
+            <Field
+              label="Firm name"
+              name="firm_name"
+              required
+              autoComplete="organization"
+            />
+          )}
+          {signup && (
+            <Field label="Full name" name="name" required autoComplete="name" />
+          )}
           <Field
             label="Email"
+            name="email"
             type="email"
             required
             autoComplete="username"
@@ -1301,26 +1340,37 @@ function Auth({ kind }) {
           />
           <Field
             label="Password"
+            name="password"
             type="password"
             minLength={8}
             required
             autoComplete={signup ? "new-password" : "current-password"}
-            placeholder="Use a fictional password"
+            placeholder={serverMode ? "At least 8 characters" : "Use a fictional password"}
           />
-          <Switch
-            label="Remember this demo preference"
-            checked={remember}
-            onChange={setRemember}
-          />
-          <Button>
-            {signup ? "PREVIEW ACCOUNT REQUEST" : "PREVIEW SIGN IN"}
+          {!serverMode && (
+            <Switch
+              label="Remember this demo preference"
+              checked={remember}
+              onChange={setRemember}
+            />
+          )}
+          <Button disabled={busy}>
+            {serverMode
+              ? signup
+                ? "CREATE WORKSPACE"
+                : "SIGN IN"
+              : signup
+                ? "PREVIEW ACCOUNT REQUEST"
+                : "PREVIEW SIGN IN"}
           </Button>
         </form>
         <StatusMessage>{message}</StatusMessage>
-        <p>
-          Use fictional credentials. Passwords are neither saved nor
-          transmitted.
-        </p>
+        {!serverMode && (
+          <p>
+            Use fictional credentials. Passwords are neither saved nor
+            transmitted.
+          </p>
+        )}
         <button
           className="v-text-link"
           onClick={() =>
