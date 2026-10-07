@@ -164,6 +164,81 @@ export function replayPending(storageKey, saved, validate = () => true) {
   return { saved, applied, conflicts };
 }
 
+// localStorage is not read-after-write consistent across tabs: Chromium keeps a
+// per-process copy, so a tab can take the save lock before another tab's last
+// write has reached it, and would merge against stale data. Each commit also
+// records its revision in IndexedDB, which is consistent across tabs, and a
+// writer waits until its localStorage view has caught up before merging.
+const REVISION_DB = "law-suite-revisions";
+const SYNC_WAIT_MS = 3000;
+
+function revisionStore(mode, operate) {
+  return new Promise((resolve, reject) => {
+    if (typeof indexedDB === "undefined") return resolve(undefined);
+    const open = indexedDB.open(REVISION_DB, 1);
+    open.onupgradeneeded = () => open.result.createObjectStore("revisions");
+    open.onerror = () => reject(open.error);
+    open.onsuccess = () => {
+      const db = open.result;
+      const tx = db.transaction("revisions", mode);
+      const request = operate(tx.objectStore("revisions"));
+      tx.oncomplete = () => {
+        db.close();
+        resolve(request.result);
+      };
+      tx.onerror = tx.onabort = () => {
+        db.close();
+        reject(tx.error);
+      };
+    };
+  });
+}
+
+function localRevision(storageKey) {
+  try {
+    return JSON.parse(localStorage.getItem(`${storageKey}-metadata`))?.revision;
+  } catch {
+    return undefined;
+  }
+}
+
+// Resolves once this tab sees the latest committed revision. Rejects with a
+// competing-edit error if it still sees an older revision after the wait, so the
+// caller preserves its edit for recovery instead of overwriting newer work.
+export async function awaitLatestRevision(storageKey) {
+  let expected;
+  try {
+    expected = await revisionStore("readonly", (s) => s.get(storageKey));
+  } catch {
+    return; // No IndexedDB: fall back to the lock alone.
+  }
+  if (expected === undefined) return;
+  const deadline = Date.now() + SYNC_WAIT_MS;
+  while (localRevision(storageKey) !== expected) {
+    // Missing metadata means storage was cleared outside the app; nothing to protect.
+    if (localRevision(storageKey) === undefined && Date.now() > deadline) return;
+    if (Date.now() > deadline)
+      throw new Error(`Competing edits to ${storageKey}`);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+}
+
+// Writes the canonical record with a fresh revision and waits until the revision
+// is durable in IndexedDB, so the lock is released only after it is visible.
+export async function publishRecord(storageKey, value) {
+  const revision = crypto.randomUUID();
+  localStorage.setItem(storageKey, JSON.stringify(value));
+  localStorage.setItem(
+    `${storageKey}-metadata`,
+    JSON.stringify({ schema: 1, revision, savedAt: new Date().toISOString() }),
+  );
+  try {
+    await revisionStore("readwrite", (s) => s.put(revision, storageKey));
+  } catch {
+    /* Without IndexedDB the lock alone orders writes. */
+  }
+}
+
 export function useRecords(storageKey, initial, validator) {
   const config = useRef({ initial, validator });
   config.current = { initial, validator };
@@ -214,8 +289,9 @@ export function useRecords(storageKey, initial, validator) {
   useEffect(() => {
     // Recover intents left by a page that closed before its save lock ran.
     if (navigator.locks)
-      queue.current = navigator.locks.request(storageKey, () => {
+      queue.current = navigator.locks.request(storageKey, async () => {
         try {
+          await awaitLatestRevision(storageKey);
           const result = replayPending(
             storageKey,
             read(),
@@ -225,7 +301,7 @@ export function useRecords(storageKey, initial, validator) {
             result.applied.length ||
             localStorage.getItem(storageKey) === null
           ) {
-            localStorage.setItem(storageKey, JSON.stringify(result.saved));
+            await publishRecord(storageKey, result.saved);
             result.applied.forEach((key) => localStorage.removeItem(key));
           }
           if (result.conflicts.length) {
@@ -302,10 +378,12 @@ export function useRecords(storageKey, initial, validator) {
         );
       }
       pending.current += 1;
-      const commit = () => {
+      const commit = async () => {
         try {
           // Another mounted consumer may already have recovered this intent.
           // Do not replay an older edit over a later recovered version.
+          if (localStorage.getItem(intentKey) === null) return;
+          await awaitLatestRevision(storageKey);
           if (localStorage.getItem(intentKey) === null) return;
           let saved = read();
           if (
@@ -325,16 +403,8 @@ export function useRecords(storageKey, initial, validator) {
               actor: base.actor,
             };
           const merged = mergeRecords(base, next, saved);
-          localStorage.setItem(storageKey, JSON.stringify(merged));
+          await publishRecord(storageKey, merged);
           localStorage.removeItem(intentKey);
-          localStorage.setItem(
-            `${storageKey}-metadata`,
-            JSON.stringify({
-              schema: 1,
-              revision: crypto.randomUUID(),
-              savedAt: new Date().toISOString(),
-            }),
-          );
           if (pending.current === 1) {
             current.current = merged;
             setValue(merged);
