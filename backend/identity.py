@@ -133,6 +133,9 @@ async def ensure_indexes(db):
     await db.invites.create_index("code_hash", unique=True)
     await db.matters.create_index([("firm_id", 1), ("id", 1)], unique=True)
     await db.tasks.create_index([("firm_id", 1), ("matter_id", 1)])
+    await db.comments.create_index([("firm_id", 1), ("matter_id", 1)])
+    await db.activity.create_index([("firm_id", 1), ("matter_id", 1)])
+    await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
 
 
 # ============== DEPENDENCIES ==============
