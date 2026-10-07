@@ -29,6 +29,7 @@ The new Vision UI handoff is implemented in the review branch, with all 32 refer
 
 - [Workspace UI design](docs/UI_DESIGN.md): reference palette, application coverage, and validation scope.
 
+- [Requirements review and end-to-end results](docs/REQUIREMENTS_REVIEW.md): capability against the one-stop firm workspace goal.
 - [Codebase, website, and competitive review](docs/LAW_SUITE_REVIEW.md): findings, original positioning, US firm priorities, architecture, and evaluation plan.
 - [Security and governance](docs/SECURITY_AND_GOVERNANCE.md): boundaries and production requirements.
 - [Product case study](docs/PRODUCT_CASE_STUDY.md): review logic and discovery hypotheses.
