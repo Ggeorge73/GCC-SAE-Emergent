@@ -85,6 +85,11 @@ export function SessionProvider({ children }) {
       accept(await api("/auth/signup", { method: "POST", body: details })),
     [accept],
   );
+  const join = useCallback(
+    async (code, password) =>
+      accept(await api("/auth/join", { method: "POST", body: { code, password } })),
+    [accept],
+  );
   const signOut = useCallback(async () => {
     try {
       await api("/auth/logout", { method: "POST" });
@@ -96,7 +101,7 @@ export function SessionProvider({ children }) {
 
   return createElement(
     SessionContext.Provider,
-    { value: { ...state, signIn, signUp, signOut } },
+    { value: { ...state, signIn, signUp, join, signOut } },
     children,
   );
 }
