@@ -370,7 +370,7 @@ function FirmInbox({ route }) {
   );
 }
 
-export function VisionHeader({ route, activeTab, setActiveTab }) {
+export function VisionHeader({ route }) {
   const { mobile, setMobile, preferences, update, setConfig } =
     useContext(Context);
   const [query, setQuery] = useState("");
@@ -492,16 +492,6 @@ export function VisionHeader({ route, activeTab, setActiveTab }) {
           )}
         </div>
         )}
-        {process.env.REACT_APP_BACKEND_URL &&
-          route.workspace === "workspace" && (
-            <button
-              onClick={() =>
-                setActiveTab(activeTab === "records" ? "audit" : "records")
-              }
-            >
-              {activeTab === "records" ? "Activity" : "Documents"}
-            </button>
-          )}
       </div>
     </header>
   );

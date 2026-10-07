@@ -1288,6 +1288,7 @@ function Auth({ kind }) {
       if (signup)
         await session.signUp({
           firm_name: data.firm_name,
+          plan: data.plan,
           name: data.name,
           email: data.email,
           password: data.password,
@@ -1321,12 +1322,22 @@ function Auth({ kind }) {
         </p>
         <form onSubmit={submit}>
           {signup && serverMode && (
-            <Field
-              label="Firm name"
-              name="firm_name"
-              required
-              autoComplete="organization"
-            />
+            <>
+              <Field
+                label="Firm name"
+                name="firm_name"
+                required
+                autoComplete="organization"
+              />
+              <label className="v-field">
+                <span>Firm size</span>
+                <select name="plan" defaultValue="practice">
+                  <option value="solo">Solo · up to 3 staff</option>
+                  <option value="practice">Practice · up to 50 staff</option>
+                  <option value="enterprise">Enterprise · unlimited staff</option>
+                </select>
+              </label>
+            </>
           )}
           {signup && (
             <Field label="Full name" name="name" required autoComplete="name" />
@@ -1343,10 +1354,10 @@ function Auth({ kind }) {
             label="Password"
             name="password"
             type="password"
-            minLength={8}
+            minLength={serverMode && !signup ? 1 : signup && serverMode ? 12 : 8}
             required
             autoComplete={signup ? "new-password" : "current-password"}
-            placeholder={serverMode ? "At least 8 characters" : "Use a fictional password"}
+            placeholder={serverMode ? (signup ? "At least 12 characters" : "Your password") : "Use a fictional password"}
           />
           {!serverMode && (
             <Switch
@@ -1429,10 +1440,10 @@ function JoinFirm() {
             label="Password"
             name="password"
             type="password"
-            minLength={8}
+            minLength={12}
             required
             autoComplete="new-password"
-            placeholder="At least 8 characters"
+            placeholder="At least 12 characters"
           />
           <Button disabled={busy || !serverMode}>JOIN FIRM</Button>
         </form>

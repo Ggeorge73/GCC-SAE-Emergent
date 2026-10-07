@@ -142,7 +142,7 @@ function Workspace({ user }) {
           </Panel>
         )}
       </div>
-      <Directory user={user} members={members} run={run} />
+      <Directory user={user} members={members} run={run} refresh={refresh} />
     </div>
   );
 }
@@ -500,27 +500,99 @@ function Discussion({ matter, user, nameOf, run }) {
   );
 }
 
-function Directory({ user, members, run }) {
+const PLAN_NAMES = { solo: "Solo", practice: "Practice", enterprise: "Enterprise" };
+
+function Directory({ user, members, run, refresh }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("associate");
   const [code, setCode] = useState("");
+  const [plan, setPlan] = useState(null);
+  const isAdmin = user.role === "admin";
+  const loadPlan = useCallback(async () => setPlan(await api("/firm/plan")), []);
+  useEffect(() => {
+    run(loadPlan);
+  }, [run, loadPlan]);
+  const changeMember = (member, body, success) =>
+    run(async () => {
+      await api(`/firm/members/${member.id}`, { method: "PATCH", body });
+      await Promise.all([refresh(), loadPlan()]);
+    }, success);
   return (
     <Panel title="Firm directory" subtitle="Everyone with an account at your firm.">
+      {plan && (
+        <div className="v-firm-plan" aria-label="Firm plan">
+          <p>
+            <b>{PLAN_NAMES[plan.plan]} plan</b> ·{" "}
+            {plan.seat_limit === null
+              ? `${plan.seats_used} staff seats in use (unlimited)`
+              : `${plan.seats_used} of ${plan.seat_limit} staff seats in use`}
+            . Client accounts do not use seats.
+          </p>
+          {isAdmin && (
+            <Select
+              label="Change plan"
+              value={plan.plan}
+              onChange={(next) =>
+                run(async () => {
+                  setPlan(await api("/firm/plan", { method: "PATCH", body: { plan: next } }));
+                }, `Plan changed to ${PLAN_NAMES[next]}. No payment is taken in this prototype.`)
+              }
+            >
+              {Object.entries(PLAN_NAMES).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </Select>
+          )}
+        </div>
+      )}
       <table className="v-firm-table">
         <thead>
           <tr>
             <th>Name</th>
             <th>Email</th>
             <th>Role</th>
+            {isAdmin && <th>Access</th>}
           </tr>
         </thead>
         <tbody>
           {members.map((m) => (
-            <tr key={m.id}>
+            <tr key={m.id} className={m.active === false ? "v-inactive" : ""}>
               <td>{m.name}</td>
               <td>{m.email}</td>
-              <td>{m.role}</td>
+              <td>
+                {isAdmin && m.role !== "client" ? (
+                  <select
+                    aria-label={`Role for ${m.name}`}
+                    value={m.role}
+                    onChange={(e) => changeMember(m, { role: e.target.value }, `${m.name} is now ${e.target.value}.`)}
+                  >
+                    {["admin", "partner", "associate", "paralegal"].map((r) => (
+                      <option key={r}>{r}</option>
+                    ))}
+                  </select>
+                ) : (
+                  m.role
+                )}
+              </td>
+              {isAdmin && (
+                <td>
+                  <button
+                    className="v-text-link"
+                    onClick={() =>
+                      changeMember(
+                        m,
+                        { active: m.active === false },
+                        m.active === false ? `${m.name} reactivated.` : `${m.name} deactivated and signed out everywhere.`,
+                      )
+                    }
+                  >
+                    {m.active === false ? `Reactivate ${m.name}` : `Deactivate ${m.name}`}
+                  </button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -538,13 +610,14 @@ function Directory({ user, members, run }) {
               setCode(result.code);
               setName("");
               setEmail("");
+              await loadPlan();
             });
           }}
         >
           <h3>Invite a colleague</h3>
           <TextField label="Colleague name" value={name} onChange={setName} required />
           <TextField label="Colleague email" type="email" value={email} onChange={setEmail} required />
-          <Select label="Role" value={role} onChange={setRole}>
+          <Select label="Colleague role" value={role} onChange={setRole}>
             {(user.role === "admin"
               ? ["admin", "partner", "associate", "paralegal"]
               : ["partner", "associate", "paralegal"]

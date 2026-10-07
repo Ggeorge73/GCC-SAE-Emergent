@@ -65,7 +65,7 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual(len(self.db.users.rows), 1)
 
     def test_short_password_and_bad_email_are_rejected(self):
-        for payload in [{"password": "short"}, {"email": "not-an-email"}]:
+        for payload in [{"password": "short"}, {"password": "elevenchars"}, {"email": "not-an-email"}]:
             body = {"firm_name": "Firm", "name": "Name", "email": "x@firm.test", "password": PASSWORD, **payload}
             self.assertEqual(self.client.post("/api/auth/signup", json=body).status_code, 422)
 

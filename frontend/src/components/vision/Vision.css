@@ -2638,3 +2638,17 @@
   font-size: 12px;
   max-width: 100%;
 }
+.v-firm-plan {
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+.v-firm-table select {
+  background: transparent;
+  color: inherit;
+  border: 1px solid #46547a;
+  border-radius: 8px;
+  padding: 2px 6px;
+}
+.v-firm-table .v-inactive td {
+  opacity: 0.55;
+}

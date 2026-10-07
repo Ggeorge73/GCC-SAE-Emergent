@@ -35,7 +35,7 @@ class FirmFixture(unittest.TestCase):
         return getattr(self.client, method)(f"/api{path}", headers={"Authorization": f"Bearer {who['token']}"}, **kwargs)
 
     def signup(self, email, firm):
-        body = self.client.post("/api/auth/signup", json={"firm_name": firm, "name": f"{firm} Admin", "email": email, "password": PASSWORD}).json()
+        body = self.client.post("/api/auth/signup", json={"firm_name": firm, "name": f"{firm} Admin", "email": email, "password": PASSWORD, "plan": "practice"}).json()
         return body
 
     def join(self, inviter, name, email, role):

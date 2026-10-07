@@ -18,10 +18,17 @@ Law Suite handles workflows that could contain privileged legal work and highly 
 - Environment-based backend connection settings
 - A modeled administrator experience for SSO, SCIM, RBAC, and access review
 
+- Firm accounts with scrypt-hashed passwords (12-character minimum), revocable server-side sessions stored as token digests, 12-hour expiry and a 15-minute lockout after five failed sign-ins
+- One role permission table (admin, partner, associate, paralegal, client) enforced on every authenticated route
+- Firm isolation and matter membership on every matter, task, comment, activity and document path; ethical walls override admin access and return "not found"
+- A client portal that reads only explicitly shared records; clients are refused every firm route
+- Immediate sign-out of deactivated members; at least one active admin is always kept
+
 ### Not production-ready
 
-- No authenticated user session
-- No production backend authorization or organization boundary enforcement; data routes are disabled by default, with opt-in loopback-only synthetic-data development
+- Session tokens live in browser localStorage rather than secure HTTP-only cookies
+- No email delivery, password reset, SSO, MFA or SCIM
+- The legacy deal-room routes remain unauthenticated; they are disabled by default and loopback-only for the developer harness
 - No implemented SSO, SCIM, or RBAC despite the portfolio UI model
 - CORS defaults to a local origin; full deployment security remains unvalidated
 - Firebase rules are not included or verified; external storage registration and the frontend upload fallback are disabled

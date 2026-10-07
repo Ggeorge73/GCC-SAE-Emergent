@@ -39,7 +39,10 @@ PERMISSIONS = {
 AUTHENTICATED_PREFIXES = ("/api/auth/", "/api/firm/", "/api/portal/")
 
 SESSION_SECONDS = int(float(os.environ.get("LAW_SUITE_SESSION_HOURS", "12")) * 3600)
-MIN_PASSWORD_LENGTH = 8
+MIN_PASSWORD_LENGTH = 12
+# Repeated failed sign-ins for one email lock that email out for a while.
+LOCKOUT_ATTEMPTS = 5
+LOCKOUT_SECONDS = 15 * 60
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
 Email = Annotated[str, StringConstraints(strip_whitespace=True, to_lower=True, min_length=3, max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")]
@@ -131,6 +134,7 @@ async def ensure_indexes(db):
     await db.users.create_index("email", unique=True)
     await db.sessions.create_index("token_hash", unique=True)
     await db.invites.create_index("code_hash", unique=True)
+    await db.login_failures.create_index([("email", 1), ("at", 1)])
     await db.matters.create_index([("firm_id", 1), ("id", 1)], unique=True)
     await db.tasks.create_index([("firm_id", 1), ("matter_id", 1)])
     await db.comments.create_index([("firm_id", 1), ("matter_id", 1)])
@@ -215,10 +219,17 @@ async def signup(request: SignupRequest, db=Depends(get_db)):
 
 @router.post("/auth/login")
 async def login(request: LoginRequest, db=Depends(get_db)):
+    now = time.time()
+    recent = await db.login_failures.count_documents({"email": request.email, "at": {"$gt": now - LOCKOUT_SECONDS}})
+    if recent >= LOCKOUT_ATTEMPTS:
+        raise HTTPException(status_code=429, detail="Too many failed sign-in attempts. Try again in 15 minutes.")
     user = await db.users.find_one({"email": request.email}, {"_id": 0})
     valid = verify_password(request.password, user["password_hash"] if user else _DUMMY_HASH)
     if not user or not valid or not user.get("active", True):
+        # Unknown emails count too, so the lockout does not reveal which accounts exist.
+        await db.login_failures.insert_one({"email": request.email, "at": now})
         raise HTTPException(status_code=401, detail="Email or password is incorrect.")
+    await db.login_failures.delete_many({"email": request.email})
     firm = await db.firms.find_one({"id": user["firm_id"]}, {"_id": 0})
     token = await start_session(db, user)
     return {"token": token, "user": public_user(user), "firm": public_firm(firm or {})}
