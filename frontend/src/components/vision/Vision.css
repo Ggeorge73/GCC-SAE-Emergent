@@ -2583,3 +2583,45 @@
   user-select: all;
   font-size: 14px;
 }
+.v-firm-thread {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.v-firm-thread li {
+  border-left: 2px solid #0075ff;
+  padding: 4px 0 4px 10px;
+}
+.v-firm-thread p {
+  margin: 2px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.v-firm-thread small,
+.v-firm-note {
+  color: #a0aec0;
+  font-size: 12px;
+}
+.v-firm textarea {
+  min-height: 80px;
+}
+.v-bell-count {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #e31a1a;
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+.v-notification-popover .unread {
+  font-weight: 700;
+}

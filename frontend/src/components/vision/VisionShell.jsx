@@ -20,7 +20,7 @@ import {
 import { visionGroups, visionRoute } from "./routes";
 import { Button, Switch, useLocal, StatusMessage } from "./Glass";
 import { navigateTo } from "@/lib/workspaceNavigation";
-import { useSession } from "@/lib/session";
+import { api, useSession } from "@/lib/session";
 const Context = createContext(null);
 const icons = {
   home: Home,
@@ -302,6 +302,74 @@ export function VisionNavigation({ route }) {
     </>
   );
 }
+// Personal notifications from the firm API: mentions, assignments and client messages.
+function FirmInbox({ route }) {
+  const [open, setOpen] = useState(false);
+  const [inbox, setInbox] = useState({ unread: 0, items: [] });
+  const load = () =>
+    api("/firm/notifications")
+      .then(setInbox)
+      .catch(() => {});
+  useEffect(() => {
+    load();
+    const timer = setInterval(load, 15000);
+    window.addEventListener("focus", load);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", load);
+    };
+  }, []);
+  useEffect(() => setOpen(false), [route]);
+  return (
+    <div className="v-notification-anchor">
+      <button
+        aria-label={`View notifications, ${inbox.unread} unread`}
+        aria-expanded={open}
+        onClick={() => {
+          setOpen(!open);
+          if (!open) load();
+        }}
+      >
+        <Bell size={16} />
+        {inbox.unread > 0 && (
+          <span className="v-bell-count" aria-hidden="true">
+            {inbox.unread}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="v-notification-popover" role="region" aria-label="Your notifications">
+          <h3>Notifications</h3>
+          {!inbox.items.length && <p>Nothing new.</p>}
+          {inbox.items.map((n) => (
+            <button
+              key={n.id}
+              className={n.read ? "" : "unread"}
+              onClick={async () => {
+                await api(`/firm/notifications/${n.id}/read`, { method: "POST" }).catch(() => {});
+                await load();
+                navigateTo(`/firm/workspace?matter=${n.matter_id}`);
+              }}
+            >
+              {n.text} <ChevronRight size={14} />
+            </button>
+          ))}
+          {inbox.unread > 0 && (
+            <button
+              onClick={async () => {
+                await api("/firm/notifications/read-all", { method: "POST" }).catch(() => {});
+                load();
+              }}
+            >
+              Mark all as read
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function VisionHeader({ route, activeTab, setActiveTab }) {
   const { mobile, setMobile, preferences, update, setConfig } =
     useContext(Context);
@@ -395,6 +463,9 @@ export function VisionHeader({ route, activeTab, setActiveTab }) {
         >
           <Settings size={17} />
         </button>
+        {session.status === "signed-in" ? (
+          <FirmInbox route={route} />
+        ) : (
         <div className="v-notification-anchor">
           <button
             aria-label="View notifications"
@@ -420,6 +491,7 @@ export function VisionHeader({ route, activeTab, setActiveTab }) {
             </div>
           )}
         </div>
+        )}
         {process.env.REACT_APP_BACKEND_URL &&
           route.workspace === "workspace" && (
             <button

@@ -82,8 +82,15 @@ function Workspace({ user }) {
     ]);
     setMembers(people);
     setMatters(list);
+    const requested = new URLSearchParams(
+      window.location.hash.split("?")[1] || "",
+    ).get("matter");
     setSelected((current) =>
-      list.some((m) => m.id === current) ? current : list[0]?.id || null,
+      list.some((m) => m.id === requested)
+        ? requested
+        : list.some((m) => m.id === current)
+          ? current
+          : list[0]?.id || null,
     );
   }, []);
 
@@ -93,9 +100,11 @@ function Workspace({ user }) {
     const quietly = () => refresh().catch(() => {});
     const timer = setInterval(quietly, 15000);
     window.addEventListener("focus", quietly);
+    window.addEventListener("hashchange", quietly);
     return () => {
       clearInterval(timer);
       window.removeEventListener("focus", quietly);
+      window.removeEventListener("hashchange", quietly);
     };
   }, [run, refresh]);
 
@@ -371,7 +380,127 @@ function MatterPanel({ user, matter, members, nameOf, run, refresh }) {
         <TextField label="Due date" type="date" value={due} onChange={setDue} />
         <Button>Add task</Button>
       </form>
+      <Discussion matter={matter} user={user} nameOf={nameOf} run={run} />
     </Panel>
+  );
+}
+
+const ACTIONS = {
+  "matter.opened": "opened the matter",
+  "matter.updated": "updated",
+  "member.added": "added member",
+  "member.removed": "removed member",
+  "wall.added": "recorded an ethical wall:",
+  "wall.removed": "removed the wall for",
+  "task.created": "created task",
+  "task.status": "changed task status:",
+  "task.assigned": "assigned task",
+  "comment.posted": "commented:",
+};
+const when = (iso) =>
+  new Date(iso).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+
+function Discussion({ matter, user, nameOf, run }) {
+  const [comments, setComments] = useState([]);
+  const [activity, setActivity] = useState([]);
+  const [body, setBody] = useState("");
+  const [mentions, setMentions] = useState([]);
+  const base = `/firm/matters/${matter.id}`;
+  const load = useCallback(async () => {
+    const [thread, feed] = await Promise.all([
+      api(`${base}/comments`),
+      api(`${base}/activity`),
+    ]);
+    setComments(thread);
+    setActivity(feed);
+  }, [base]);
+  useEffect(() => {
+    run(load);
+    const timer = setInterval(() => load().catch(() => {}), 15000);
+    return () => clearInterval(timer);
+  }, [run, load, matter.updated_at]);
+
+  const mentionable = matter.member_ids.filter(
+    (id) => id !== user.id && !mentions.includes(id),
+  );
+  return (
+    <>
+      <h3>Discussion</h3>
+      <p className="v-firm-note">Internal to the firm. Never shown to clients.</p>
+      <ol className="v-firm-thread" aria-label="Matter discussion">
+        {comments.map((c) => (
+          <li key={c.id}>
+            <small>
+              <b>{c.author_name}</b> ({c.author_role}) · {when(c.created_at)}
+            </small>
+            <p>{c.body}</p>
+          </li>
+        ))}
+        {!comments.length && <li>No comments yet.</li>}
+      </ol>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          run(async () => {
+            await api(`${base}/comments`, {
+              method: "POST",
+              body: { body, mention_ids: mentions },
+            });
+            setBody("");
+            setMentions([]);
+            await load();
+          }, mentions.length ? "Comment posted. Mentioned colleagues were notified." : "Comment posted.");
+        }}
+      >
+        <label className="v-field">
+          <span>Comment</span>
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            maxLength={4000}
+            required
+          />
+        </label>
+        {mentionable.length > 0 && (
+          <Select
+            label="Mention colleague"
+            value=""
+            onChange={(id) => {
+              if (!id) return;
+              setMentions([...mentions, id]);
+              setBody((text) => `${text}${text && !text.endsWith(" ") ? " " : ""}@${nameOf(id)} `);
+            }}
+          >
+            <option value="">Choose a matter member</option>
+            {mentionable.map((id) => (
+              <option key={id} value={id}>
+                {nameOf(id)}
+              </option>
+            ))}
+          </Select>
+        )}
+        {mentions.length > 0 && (
+          <p className="v-firm-note">
+            Will notify: {mentions.map(nameOf).join(", ")}
+          </p>
+        )}
+        <Button>Post comment</Button>
+      </form>
+      <h3>Activity</h3>
+      <ol className="v-firm-thread" aria-label="Matter activity">
+        {activity.map((a) => (
+          <li key={a.id}>
+            <small>{when(a.at)}</small>
+            <p>
+              <b>{a.actor_name}</b> {ACTIONS[a.action] || a.action} {a.detail}
+            </p>
+          </li>
+        ))}
+      </ol>
+    </>
   );
 }
 

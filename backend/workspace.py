@@ -43,6 +43,22 @@ async def record(db, user: dict, matter_id: str, action: str, detail: str = ""):
     })
 
 
+async def notify(db, firm_id: str, user_ids, actor: dict, matter_id: str, kind: str, text: str):
+    """Personal inbox entries. Nobody is notified about their own action."""
+    for user_id in {u for u in user_ids if u and u != actor["id"]}:
+        await db.notifications.insert_one({
+            "id": str(uuid.uuid4()),
+            "firm_id": firm_id,
+            "user_id": user_id,
+            "matter_id": matter_id,
+            "kind": kind,
+            "text": text,
+            "actor_name": actor["name"],
+            "read": False,
+            "created_at": identity.now_iso(),
+        })
+
+
 def visible_query(user: dict) -> dict:
     """Matters this user may open: same firm, not walled, and a member unless admin."""
     query = {"firm_id": user["firm_id"], "walled_ids": {"$nin": [user["id"]]}}
@@ -321,6 +337,7 @@ async def create_task(matter_id: str, request: TaskCreate, user: dict = Depends(
     }
     await db.tasks.insert_one(dict(task))
     await record(db, user, matter_id, "task.created", task["title"])
+    await notify(db, user["firm_id"], [task["assignee_id"]], user, matter_id, "task.assigned", f"{user['name']} assigned you “{task['title']}” on {matter['name']}.")
     task.pop("_id", None)
     return task
 
@@ -345,4 +362,6 @@ async def update_task(task_id: str, request: TaskUpdate, user: dict = Depends(id
         await record(db, user, task["matter_id"], "task.status", f"{task['title']}: {changes['status']}")
     if "assignee_id" in changes:
         await record(db, user, task["matter_id"], "task.assigned", task["title"])
+        if changes["assignee_id"] != task.get("assignee_id"):
+            await notify(db, user["firm_id"], [changes["assignee_id"]], user, task["matter_id"], "task.assigned", f"{user['name']} assigned you “{task['title']}” on {matter['name']}.")
     return {**task, **changes}
