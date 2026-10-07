@@ -48,6 +48,7 @@ import { navigateTo } from "@/lib/workspaceNavigation";
 import { serverMode, useSession } from "@/lib/session";
 import { useServices } from "./serviceRecords";
 import PracticeDesk from "./PracticeDesk";
+import FirmWorkspace from "./FirmWorkspace";
 
 function ProjectCards() {
   const matters = loadWorkspace().matters;
@@ -1387,6 +1388,65 @@ function Auth({ kind }) {
     </div>
   );
 }
+function JoinFirm() {
+  const session = useSession();
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="v-auth basic">
+      <div className="v-auth-art">
+        <Scale size={85} />
+        <p>INSIGHT. INTEGRITY. IMPACT.</p>
+        <h1>Law Suite</h1>
+        <span>Evidence before delivery.</span>
+      </div>
+      <Panel className="v-auth-form">
+        <h1>Join your firm</h1>
+        <p>
+          {serverMode
+            ? "Enter the invitation code a colleague shared with you and choose a password."
+            : "Invitations need the Law Suite API. This public demo does not create accounts."}
+        </p>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!serverMode) return;
+            const data = Object.fromEntries(new FormData(e.currentTarget));
+            setBusy(true);
+            setMessage("");
+            try {
+              await session.join(data.code, data.password);
+              navigateTo("/firm/workspace");
+            } catch (error) {
+              setMessage(error.message);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <Field label="Invitation code" name="code" required autoComplete="off" />
+          <Field
+            label="Password"
+            name="password"
+            type="password"
+            minLength={8}
+            required
+            autoComplete="new-password"
+            placeholder="At least 8 characters"
+          />
+          <Button disabled={busy || !serverMode}>JOIN FIRM</Button>
+        </form>
+        <StatusMessage>{message}</StatusMessage>
+        <button
+          className="v-text-link"
+          onClick={() => navigateTo("/authentication/sign-in/basic")}
+        >
+          Already joined? Sign in
+        </button>
+      </Panel>
+    </div>
+  );
+}
 function Widgets() {
   const [quiet, setQuiet] = useLocal("quiet-hours", false);
   return (
@@ -1620,6 +1680,8 @@ export default function VisionPages({ route }) {
       </div>
     );
   else if (kind.startsWith("sign-")) content = <Auth kind={kind} />;
+  else if (kind === "join") content = <JoinFirm />;
+  else if (kind === "firm") content = <FirmWorkspace />;
   else content = <Services kind={kind} />;
   return (
     <div className="v-pages" key={route.path} data-route={route.path}>
@@ -1630,11 +1692,12 @@ export default function VisionPages({ route }) {
         "wizard",
         "new-user",
         "new-product",
+        "join",
       ].includes(kind) &&
         !kind.startsWith("sign-") && (
           <div className="v-route-heading">
             <h1>{route.title}</h1>
-            <DemoNotice />
+            {!(serverMode && kind === "firm") && <DemoNotice />}
           </div>
         )}
       {content}

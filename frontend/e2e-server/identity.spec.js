@@ -1,19 +1,7 @@
 const { test, expect } = require("@playwright/test");
 test.use({ reducedMotion: "reduce" });
 
-const password = "synthetic passphrase";
-const uniqueEmail = (label) =>
-  `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@firm.test`;
-
-async function signUp(page, { firm, name, email }) {
-  await page.goto("/#/authentication/sign-up/basic");
-  await page.getByLabel("Firm name").fill(firm);
-  await page.getByLabel("Full name").fill(name);
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "CREATE WORKSPACE" }).click();
-  await expect(page.getByLabel("Signed-in account")).toContainText(name);
-}
+const { password, uniqueEmail, signUp } = require("./helpers");
 
 test("signed-out visitors are sent to sign-in before any workspace page", async ({ page }) => {
   await page.goto("/#/matters");

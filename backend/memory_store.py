@@ -78,16 +78,18 @@ class Collection:
         self._ids = itertools.count(1)
 
     async def create_index(self, keys, unique=False, **_):
-        key = keys if isinstance(keys, str) else keys[0][0]
-        if unique and key not in self.unique:
-            self.unique.append(key)
-        return key
+        fields = (keys,) if isinstance(keys, str) else tuple(k for k, _ in keys)
+        if unique and fields not in self.unique:
+            self.unique.append(fields)
+        return "_".join(fields)
 
     def _check_unique(self, candidate, ignore=None):
-        for key in self.unique:
-            value = candidate.get(key)
-            if value is not None and any(r is not ignore and r.get(key) == value for r in self.rows):
-                raise DuplicateKeyError(f"duplicate {key}")
+        for fields in self.unique:
+            value = tuple(candidate.get(f) for f in fields)
+            if all(v is not None for v in value) and any(
+                r is not ignore and tuple(r.get(f) for f in fields) == value for r in self.rows
+            ):
+                raise DuplicateKeyError(f"duplicate {fields}")
 
     async def insert_one(self, document):
         row = copy.deepcopy(document)

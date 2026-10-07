@@ -2510,3 +2510,76 @@
     flex: 1;
   }
 }
+
+/* Shared firm workspace */
+.v-firm {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+.v-firm h3 {
+  margin: 18px 0 8px;
+  font-size: 14px;
+}
+.v-firm form {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+.v-firm form.v-inline {
+  display: flex;
+  align-items: end;
+}
+.v-firm-list,
+.v-firm-people,
+.v-firm-tasks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.v-firm-list button {
+  display: grid;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid #33466a;
+  border-radius: 12px;
+}
+.v-firm-list button[aria-pressed="true"] {
+  border-color: #0075ff;
+  background: #0075ff22;
+}
+.v-firm-list small,
+.v-firm-tasks small {
+  display: block;
+  color: #a0aec0;
+}
+.v-firm-tasks li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid #ffffff15;
+}
+.v-firm-tasks li .v-field {
+  grid-column: 1 / -1;
+}
+.v-firm-table {
+  width: 100%;
+  font-size: 13px;
+  border-collapse: collapse;
+}
+.v-firm-table th,
+.v-firm-table td {
+  text-align: left;
+  padding: 8px 6px;
+  border-bottom: 1px solid #ffffff15;
+  overflow-wrap: anywhere;
+}
+.v-firm-code code {
+  user-select: all;
+  font-size: 14px;
+}

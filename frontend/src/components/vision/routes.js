@@ -11,6 +11,7 @@ export const visionGroups = [
     label: "Legal workspace",
     icon: "briefcase",
     pages: [
+      ["/firm/workspace", "Firm workspace", "firm"],
       ["/matters", "Matter Review", "matters"],
       ["/research", "Research & Documents", "research"],
       ["/operations", "Firm Operations", "operations"],
@@ -70,6 +71,7 @@ export const visionGroups = [
         "Sign in · illustration",
         "sign-in-illustration",
       ],
+      ["/authentication/join", "Join with invitation", "join"],
       ["/authentication/sign-up/basic", "Join · basic", "sign-up-basic"],
       ["/authentication/sign-up/cover", "Join · cover", "sign-up-cover"],
       [

@@ -130,6 +130,9 @@ async def revoke_user_sessions(db, user_id: str) -> int:
 async def ensure_indexes(db):
     await db.users.create_index("email", unique=True)
     await db.sessions.create_index("token_hash", unique=True)
+    await db.invites.create_index("code_hash", unique=True)
+    await db.matters.create_index([("firm_id", 1), ("id", 1)], unique=True)
+    await db.tasks.create_index([("firm_id", 1), ("matter_id", 1)])
 
 
 # ============== DEPENDENCIES ==============

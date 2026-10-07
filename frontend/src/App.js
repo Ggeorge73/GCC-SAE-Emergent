@@ -908,7 +908,9 @@ function App() {
   }, []);
   // With a live API the workspace opens only after sign-in; the public demo stays open.
   const session = useSession();
-  const onAuthPage = route.workspace === "vision" && route.page.startsWith("sign-");
+  const onAuthPage =
+    route.workspace === "vision" &&
+    (route.page.startsWith("sign-") || route.page === "join");
   const locked = serverMode && session.status !== "signed-in" && !onAuthPage;
   useEffect(() => {
     if (locked && session.status === "signed-out")
