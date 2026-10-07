@@ -63,7 +63,8 @@
     "start": "craco start",
     "build": "craco build",
     "test": "craco test",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:server": "playwright test -c playwright.server.config.js"
   },
   "browserslist": {
     "production": [

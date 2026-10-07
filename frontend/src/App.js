@@ -50,6 +50,7 @@ import {
 } from "@/components/vision/VisionShell";
 import VisionPages from "@/components/vision/VisionPages";
 import { readRoute, navigateTo } from "@/lib/workspaceNavigation";
+import { serverMode, useSession } from "@/lib/session";
 import "@/components/PortfolioShell.css";
 import "@/components/vision/Vision.css";
 import {
@@ -905,6 +906,14 @@ function App() {
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
   }, []);
+  // With a live API the workspace opens only after sign-in; the public demo stays open.
+  const session = useSession();
+  const onAuthPage = route.workspace === "vision" && route.page.startsWith("sign-");
+  const locked = serverMode && session.status !== "signed-in" && !onAuthPage;
+  useEffect(() => {
+    if (locked && session.status === "signed-out")
+      navigateTo("/authentication/sign-in/basic");
+  }, [locked, session.status, route]);
 
   // Fetch deal rooms
   const fetchDealRooms = useCallback(async () => {
@@ -1071,10 +1080,16 @@ function App() {
           setActiveTab={setActiveTab}
         />
 
-        <div hidden={workspaceMode !== "review"} className="flex-1 min-h-0">
-          <MatterDesk route={route} onNavigate={navigateTo} />
-        </div>
-        {workspaceMode === "vision" ? (
+        {locked ? (
+          <p className="v-session-check" role="status">
+            Checking your session…
+          </p>
+        ) : (
+          <div hidden={workspaceMode !== "review"} className="flex-1 min-h-0">
+            <MatterDesk route={route} onNavigate={navigateTo} />
+          </div>
+        )}
+        {locked ? null : workspaceMode === "vision" ? (
           <VisionPages route={route} />
         ) : workspaceMode === "control" ? (
           <FirmOperations />

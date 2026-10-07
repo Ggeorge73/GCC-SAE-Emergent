@@ -49,6 +49,26 @@ jobs:
           name: playwright-report
           path: frontend/playwright-report/
           retention-days: 14
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements-ci.txt
+      - name: Install API dependencies for signed-in journeys
+        working-directory: .
+        run: python -m pip install --disable-pip-version-check -r backend/requirements-ci.txt
+      - name: Run signed-in browser journeys against a live API
+        run: npm run test:e2e:server
+        env:
+          CI: true
+          PYTHON: python
+      - name: Upload signed-in browser-test report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-report-server
+          path: frontend/playwright-report-server/
+          retention-days: 14
 
   backend:
     name: Backend integration tests
