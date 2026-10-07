@@ -15,8 +15,10 @@ from pymongo.errors import DuplicateKeyError
 
 try:
     from . import identity
+    from .administration import ensure_seat
 except ImportError:
     import identity
+    from administration import ensure_seat
 
 INVITE_SECONDS = 7 * 24 * 3600
 STAFF_ROLE = Literal["admin", "partner", "associate", "paralegal"]
@@ -116,6 +118,7 @@ async def invite_member(request: InviteRequest, user: dict = Depends(identity.re
         raise HTTPException(status_code=403, detail="Only an admin can invite another admin.")
     if await db.users.find_one({"email": request.email}, {"_id": 0, "id": 1}):
         raise HTTPException(status_code=409, detail="An account with this email already exists.")
+    await ensure_seat(db, user["firm_id"])
     code = secrets.token_urlsafe(12)
     invite = {
         "id": str(uuid.uuid4()),

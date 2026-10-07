@@ -4,9 +4,10 @@ const password = "synthetic passphrase";
 const uniqueEmail = (label) =>
   `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@firm.test`;
 
-async function signUp(page, { firm = "Synthetic Partners LLP", name = "Ada Admin", email = uniqueEmail("admin") } = {}) {
+async function signUp(page, { firm = "Synthetic Partners LLP", name = "Ada Admin", email = uniqueEmail("admin"), plan } = {}) {
   await page.goto("/#/authentication/sign-up/basic");
   await page.getByLabel("Firm name").fill(firm);
+  if (plan) await page.getByLabel("Firm size").selectOption(plan);
   await page.getByLabel("Full name").fill(name);
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
@@ -21,7 +22,7 @@ async function inviteColleague(page, browser, { name, role }) {
   const previous = await page.getByTestId("invite-code").textContent({ timeout: 1000 }).catch(() => null);
   await page.getByLabel("Colleague name").fill(name);
   await page.getByLabel("Colleague email").fill(uniqueEmail(role));
-  await page.getByLabel("Role").selectOption(role);
+  await page.getByLabel("Colleague role").selectOption(role);
   await page.getByRole("button", { name: "Create invitation" }).click();
   await expect(page.getByTestId("invite-code")).not.toHaveText(previous || "");
   const code = await page.getByTestId("invite-code").textContent();
